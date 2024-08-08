@@ -3,14 +3,20 @@ using Ecommerce.Core.Entities;
 using Ecommerce.Core.Entities.DTO;
 using Ecommerce.Core.IRepositories;
 using Ecommerce.Infrastructure.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.Linq.Expressions;
 using System.Net.WebSockets;
+using System.Runtime.CompilerServices;
 
 namespace Ecommerce.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ProductController : ControllerBase
     {
         private readonly AppDbContext dbContext;
@@ -31,13 +37,22 @@ namespace Ecommerce.API.Controllers
             apiResponse = new ApiResponse();
         }
         [HttpGet]
-        public async Task<ActionResult<ApiResponse>> GetAll()
+        [ResponseCache(CacheProfileName =("defaultCache"))]
+        [Authorize(AuthenticationSchemes =JwtBearerDefaults.AuthenticationScheme,Roles ="Admin")]
+        public async Task<ActionResult<ApiResponse>> GetAll([FromQuery] string? catName = null,
+            int PageSize = 2 , int PageNumber =1)
         {
-            var model = await uniteOfWork.ProductRepositories.GetAll();
+            Expression<Func<Products, bool>> filter = null;
+             if (!string.IsNullOrEmpty(catName))
+            {
+                filter = x=>x.Category.Name.Contains(catName);
+            }
+            var model = await uniteOfWork.ProductRepositories.GetAll(filter:filter,page_size : PageSize, page_number : PageNumber , 
+                includeProperty :"Category");
             var check = model.Any();
             if (check)
             {
-                apiResponse.httpStatusCode = System.Net.HttpStatusCode.OK;
+                apiResponse.StatusCode = 200;
                 apiResponse.IsSuccess = check;
                 var mappingProduct = mapper.Map< IEnumerable<Products>, IEnumerable<ProductDTO> >(model); 
                 apiResponse.Result = mappingProduct;
@@ -45,18 +60,42 @@ namespace Ecommerce.API.Controllers
             }
             else
             {
-                apiResponse.ErrorMessage = " not found products .";
-                apiResponse.httpStatusCode = System.Net.HttpStatusCode.OK;
+                apiResponse.Message = " not found products .";
+                apiResponse.StatusCode = 200;
                 apiResponse.IsSuccess = check;
                 return apiResponse;
             }
         
         }
         [HttpGet("{id}")]
-        public async Task<ActionResult<ApiResponse>> GetByTd(int id)
+        [AllowAnonymous]
+        public async Task<ActionResult<ApiResponse>> GetByTd([FromQuery]int id)
         {
-           var product = await uniteOfWork.ProductRepositories.GetByID(id);
-            return Ok(product);
+            try
+            {
+                if (id <= 0)
+                {
+                    return BadRequest(new ApiValidationResponse(new List<string> { "Invalid ID", "Try positive integer" }
+                    , 400));
+                }
+                var product = await uniteOfWork.ProductRepositories.GetByID(id);
+                var mappingProduct = mapper.Map<Products,ProductDTO>(product);
+               
+              
+
+                if (product == null)
+                {
+                   
+                    return NotFound(new ApiResponse(404, "Product Not Found"));
+                }
+
+                    return Ok(new ApiResponse(200, result: mappingProduct));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new ApiValidationResponse (new List<string> { "internal error server" , ex.Message}));
+            }
         }
         [HttpPost]
         public async  Task<ActionResult> CreateProduct(PostProductDTO Newproduct)
@@ -101,5 +140,6 @@ namespace Ecommerce.API.Controllers
             await uniteOfWork.save();
             return Ok();
         }
+ 
     }
 }

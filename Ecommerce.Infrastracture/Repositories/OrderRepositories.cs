@@ -22,7 +22,7 @@ namespace Ecommerce.Infrastracture.Repositories
         public async Task<IEnumerable<Orders>> GetAllOrderByUserID(int userID)
         {
             var orders = await dbContext.Orders
-                .Where(o=>o.LocalUserId == userID).ToListAsync();
+                .Where(o=>o.LocalUserId.Equals(userID)).ToListAsync();
             return orders;
            
         }

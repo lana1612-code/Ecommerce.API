@@ -18,6 +18,12 @@ namespace Ecommerce.API.mapping_profile
             CreateMap<PostProductDTO, Products>()
                      .ForMember(To => To.CategoryId, From => From
                      .MapFrom(x =>  x.Category_Id));
+
+
+
+
+            CreateMap<LocalUser, LocalUserDTO>();
+
         }
     }
 }
