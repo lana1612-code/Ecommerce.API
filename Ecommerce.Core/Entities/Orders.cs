@@ -11,7 +11,7 @@ namespace Ecommerce.Core.Entities
     {
         public int Id { get; set; }
         [ForeignKey(nameof(localUser))]
-        public int LocalUserId { get; set; }
+        public string LocalUserId { get; set; }
         public string OrderStatus { get; set; }
         public DateTime OrderDate { get; set; }
         public virtual LocalUser? localUser { get; set; }

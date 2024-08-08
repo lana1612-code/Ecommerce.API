@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -27,22 +28,49 @@ namespace Ecommerce.Infrastracture.Repositories
             dbContext.Remove(id);
         }
 
-        public async Task<IEnumerable<T>> GetAll()
+        public async Task<IEnumerable<T>> GetAll(Expression<Func<T, bool>> filter, int page_size , int page_number , string? includeProperte = null)
         {
-        //   /*
-            if( typeof(T) == typeof(Products) )
+            /*
+              if( typeof(T) == typeof(Products) )
+              {
+                  var model =  await dbContext.Products.Include(x=>x.Category).ToListAsync();
+                  return (IEnumerable<T>)model;
+              } 
+            */
+            IQueryable<T> query = dbContext.Set<T>();
+
+            if (filter != null)
             {
-                var model =  await dbContext.Products.Include(x=>x.Category).ToListAsync();
-                return (IEnumerable<T>)model;
-            } 
-        //   */
-         return await   dbContext.Set<T>().ToListAsync();
+                query = query.Where(filter);
+            }
+
+            if(includeProperte != null)
+            {
+                foreach(var property in includeProperte.Split(new char[] { ',' } ,
+                    StringSplitOptions.RemoveEmptyEntries))
+                {
+                    query = query.Include(property);
+                }
+            }
+            
+            if(page_size > 0)
+            {
+                if(page_size>4 )
+                {
+                    page_size = 4;
+                }
+                query = query.Skip(page_size * (page_number -1)).Take(page_size);
+            }
+
+
+         return await   query.ToListAsync();
         }
 
         public async Task<T> GetByID(int id)
         {
-            return  await dbContext.Set<T>().FindAsync(id);
+            return await dbContext.Set<T>().FindAsync(id);
         }
+        
 
         public void Update(T model)
         {
